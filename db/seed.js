@@ -7,7 +7,12 @@ const {
   createPost, 
   updatePost, 
   getAllPosts, 
-  getPostsByUser } 
+  getPostsByUser,
+  createTags,
+  createPostTag,
+  addTagsToPost,
+  getPostById,
+  getPostsByTagName } 
   = require('./index');
   
 async function dropTables() {
@@ -15,6 +20,8 @@ async function dropTables() {
       console.log("Starting to drop tables...");
   
       await client.query(`
+        DROP TABLE IF EXISTS post_tags;
+        DROP TABLE IF EXISTS tags;
         DROP TABLE IF EXISTS posts;
         DROP TABLE IF EXISTS users;
       `);
@@ -45,6 +52,14 @@ async function createTables() {
           title VARCHAR(255) NOT NULL,
           content TEXT NOT NULL,
           active BOOLEAN DEFAULT true
+        );
+        CREATE TABLE tags (
+          id SERIAL PRIMARY KEY,
+          name VARCHAR(255) UNIQUE NOT NULL
+        );
+        CREATE TABLE post_tags (
+          "postId" INTEGER REFERENCES post(id) UNIQUE,
+          "tagID" INTEGER REFERENCES tags(id) UNIQUE
         );
       `);
   
@@ -142,11 +157,21 @@ async function testDB() {
     const albert = await getUserById(1);
     console.log("Result:", albert);
 
+    console.log("Calling updatePost on posts[1], only updating tags");
+    const updatePostTagsResult = await updatePost(posts[1].id, {
+      tags: ["#youcandoanything", "#redfish", "#bluefish"]
+    });
+    console.log("Result:", updatePostTagsResult);
+
     console.log("Finished database tests!");
   } catch (error) {
     console.log("Error during testDB");
     throw error;
   }
+
+  console.log("Calling getPostsByTagName with #happy");
+    const postsWithHappy = await getPostsByTagName("#happy");
+    console.log("Result:", postsWithHappy);
 }
   
   
