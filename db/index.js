@@ -4,13 +4,18 @@ const { Client } = require('pg'); // imports the pg module
 const client = new Client('postgres://localhost:5432/juicebox-dev');
 
 async function getAllUsers() {
+  try {
     const { rows } = await client.query(
       `SELECT id, username, name, location, active 
       FROM users;
     `);
   
-    return rows;
-}  
+   return rows;
+ } catch (error) {
+   throw(error)
+ }
+}
+
 
 async function createUser({ username, password, name, location }) {
     try {
@@ -186,20 +191,29 @@ async function createTags(tagList) {
   }
 
   // need something like: $1), ($2), ($3 
-  const insertValues = tagList.map(
+  const valuesStringInsert = tagList.map(
     (_, index) => `$${index + 1}`).join('), (');
   // then we can use: (${ insertValues }) in our string template
 
   // need something like $1, $2, $3
-  const selectValues = tagList.map(
+  const valuesStringSelect = tagList.map(
     (_, index) => `$${index + 1}`).join(', ');
   // then we can use (${ selectValues }) in our string template
 
   try {
-    const { rows } = (`
-    SELECT * FROM tags
-    WHERE name
-    IN ($1, $2, $3)`);
+    await client.query(`
+      INSERT INTO tags(name)
+      VALUES (${ valuesStringInsert })
+      ON CONFLICT (name) DO NOTHING;
+    `, tagList);
+
+    const { rows } = await client.query(`
+      SELECT * FROM tags
+      WHERE name 
+      IN (${ valuesStringSelect });
+    `, tagList);
+
+    return rows;
   } catch (error) {
     throw error;
   }
@@ -226,6 +240,19 @@ async function addTagsToPost(postId, tagList) {
     await Promise.all(createPostTagPromises);
 
     return await getPostById(postId);
+  } catch (error) {
+    throw error;
+  }
+}
+
+async function getAllTags() {
+  try {
+    const { rows } = await client.query(`
+      SELECT * 
+      FROM tags;
+    `);
+
+    return { rows }
   } catch (error) {
     throw error;
   }
@@ -283,18 +310,17 @@ async function getPostsByTagName(tagName) {
 
 module.exports = {  
   client,
-  getAllUsers,
   createUser,
   updateUser,
+  getAllUsers,
   getUserById,
-  getPostsByUser,
   createPost,
   updatePost,
   getAllPosts,
   getPostsByUser,
-  createTags,
-  createPostTag,
-  addTagsToPost,
-  getPostById,
   getPostsByTagName,
+  createTags,
+  getAllTags,
+  createPostTag,
+  addTagsToPost
 }
